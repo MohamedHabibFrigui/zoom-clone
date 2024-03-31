@@ -3,12 +3,14 @@
 import { useGetCalls } from "@/hooks/useGetCalls";
 import { Call, CallRecording } from "@stream-io/video-react-sdk";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MeetingCard from "./MeetingCard";
 import Loader from "./Loader";
+import { useToast } from "./ui/use-toast";
 
 const CallList = ({ type }: { type: "ended" | "upcoming" | "recordings" }) => {
   const router = useRouter();
+  const { toast } = useToast();
 
   const [recordings, setRecordings] = useState<CallRecording[]>([]);
 
@@ -41,10 +43,32 @@ const CallList = ({ type }: { type: "ended" | "upcoming" | "recordings" }) => {
     }
   };
 
-  if (isLoading) return <Loader />;
+  useEffect(() => {
+    const fetchRecordings = async () => {
+      try {
+        const callData = await Promise.all(
+          callRecordings.map((meeting) => meeting.queryRecordings())
+        );
+
+        const recordings = callData
+          .filter((call) => call.recordings.length > 0)
+          .flatMap((call) => call.recordings);
+
+        setRecordings(recordings);
+      } catch (error) {
+        toast({ title: "Try again later" });
+      }
+    };
+
+    if (type === "recordings") {
+      fetchRecordings();
+    }
+  }, [type, callRecordings]);
 
   const calls = getCalls();
+
   const noCallsMessage = getNoCallsMessage();
+  if (isLoading) return <Loader />;
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
